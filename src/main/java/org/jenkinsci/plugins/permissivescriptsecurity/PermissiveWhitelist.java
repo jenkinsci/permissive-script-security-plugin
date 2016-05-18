@@ -45,7 +45,7 @@ import java.util.logging.Logger;
  */
 @Extension(ordinal = Double.MIN_VALUE) @Restricted(NoExternalUse.class)
 public class PermissiveWhitelist extends Whitelist {
-    /*package*/ static volatile boolean enabled = !"false".equals(System.getProperty("permissive-script-security.enabled"));
+    /*package*/ static volatile boolean enabled = Boolean.getBoolean("permissive-script-security.enabled");
 
     /*package*/ static final Logger LOGGER = Logger.getLogger(PermissiveWhitelist.class.getName());
 

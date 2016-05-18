@@ -39,6 +39,7 @@ import java.util.logging.Handler;
 import java.util.logging.LogRecord;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 
@@ -49,34 +50,50 @@ public class PermissiveWhitelistTest {
 
     @Test
     public void logUnsafeSignature() throws Exception {
+        RingBufferLogHandler handler = injectLogHandler();
+        assertFalse("Permissive whitelisting should be disabled by default", PermissiveWhitelist.enabled);
+
+        try {
+            runScript("jenkins.model.Jenkins.getInstance()");
+            fail();
+        } catch (RejectedAccessException _) {
+            // Expected
+        }
+
+        List<LogRecord> logs = handler.getView();
+        assertEquals(0, logs.size());
+
+        PermissiveWhitelist.enabled = true;
+        Object ret = runScript("jenkins.model.Jenkins.getInstance()");
+        assertTrue(ret instanceof Jenkins);
+
+        logs = handler.getView();
+        assertEquals(1, logs.size());
+        assertEquals("Unsecure signature found: staticMethod jenkins.model.Jenkins getInstance", logs.get(0).getMessage());
+    }
+
+    @Test
+    public void ignoreSafeSignature() {
+        PermissiveWhitelist.enabled = true;
+        RingBufferLogHandler handler = injectLogHandler();
+
+        Object ret = runScript("this.equals(this)");
+        assertTrue((Boolean) ret);
+        assertEquals(handler.getView().toString(), 0, handler.getView().size());
+    }
+
+    private RingBufferLogHandler injectLogHandler() {
         for (Handler handler: PermissiveWhitelist.LOGGER.getHandlers()) {
             PermissiveWhitelist.LOGGER.removeHandler(handler);
         }
         RingBufferLogHandler handler = new RingBufferLogHandler();
         PermissiveWhitelist.LOGGER.addHandler(handler);
-
-        assertTrue(PermissiveWhitelist.enabled);
-        runUnsafeScript();
-
-        List<LogRecord> logs = handler.getView();
-        assertEquals(1, logs.size());
-        assertEquals("Unsecure signature found: staticMethod jenkins.model.Jenkins getInstance", logs.get(0).getMessage());
-
-        PermissiveWhitelist.enabled = false;
-        try {
-            runUnsafeScript();
-            fail();
-        } catch (RejectedAccessException _) {
-            // Expected
-        }
-        logs = handler.getView();
-        assertEquals(1, logs.size());
+        return handler;
     }
 
-    private void runUnsafeScript() {
+    private Object runScript(String text) {
         GroovyShell shell = new GroovyShell(GroovySandbox.createSecureCompilerConfiguration());
-        Script script = shell.parse("jenkins.model.Jenkins.getInstance()");
-        Object ret = GroovySandbox.run(script, Whitelist.all());
-        assertTrue(ret instanceof Jenkins);
+        Script script = shell.parse(text);
+        return GroovySandbox.run(script, Whitelist.all());
     }
 }
