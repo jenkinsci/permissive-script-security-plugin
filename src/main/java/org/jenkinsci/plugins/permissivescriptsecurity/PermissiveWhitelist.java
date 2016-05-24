@@ -27,6 +27,8 @@ import hudson.Extension;
 import org.jenkinsci.plugins.scriptsecurity.sandbox.RejectedAccessException;
 import org.jenkinsci.plugins.scriptsecurity.sandbox.Whitelist;
 import org.jenkinsci.plugins.scriptsecurity.sandbox.whitelists.StaticWhitelist;
+import org.jenkinsci.plugins.scriptsecurity.scripts.ApprovalContext;
+import org.jenkinsci.plugins.scriptsecurity.scripts.ScriptApproval;
 import org.kohsuke.accmod.Restricted;
 import org.kohsuke.accmod.restrictions.NoExternalUse;
 
@@ -43,7 +45,7 @@ import java.util.logging.Logger;
  *
  * @author ogondza.
  */
-@Extension(ordinal = Double.MIN_VALUE) @Restricted(NoExternalUse.class)
+@Extension(ordinal = Double.MIN_VALUE) @Restricted(NoExternalUse.class) // Run if no other whitelist permitted the signature.
 public class PermissiveWhitelist extends Whitelist {
     /*package*/ static volatile boolean enabled = Boolean.getBoolean("permissive-script-security.enabled");
 
@@ -80,6 +82,7 @@ public class PermissiveWhitelist extends Whitelist {
     private boolean act(RejectedAccessException ex) {
         if (enabled) {
             LOGGER.log(Level.INFO, "Unsecure signature found: " + ex.getSignature(), ex);
+            ScriptApproval.get().accessRejected(ex, ApprovalContext.create().withCurrentUser());
         }
         return enabled;
     }

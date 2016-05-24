@@ -23,18 +23,21 @@
  */
 package org.jenkinsci.plugins.permissivescriptsecurity;
 
-import groovy.lang.GroovyShell;
-import groovy.lang.Script;
+import groovy.lang.Binding;
 import hudson.util.RingBufferLogHandler;
 import jenkins.model.Jenkins;
 import org.jenkinsci.plugins.scriptsecurity.sandbox.RejectedAccessException;
-import org.jenkinsci.plugins.scriptsecurity.sandbox.Whitelist;
-import org.jenkinsci.plugins.scriptsecurity.sandbox.groovy.GroovySandbox;
+import org.jenkinsci.plugins.scriptsecurity.sandbox.groovy.SecureGroovyScript;
+import org.jenkinsci.plugins.scriptsecurity.scripts.ApprovalContext;
+import org.jenkinsci.plugins.scriptsecurity.scripts.ClasspathEntry;
+import org.jenkinsci.plugins.scriptsecurity.scripts.ScriptApproval;
 import org.junit.Rule;
 import org.junit.Test;
 import org.jvnet.hudson.test.JenkinsRule;
 
+import java.util.Collections;
 import java.util.List;
+import java.util.Set;
 import java.util.logging.Handler;
 import java.util.logging.LogRecord;
 
@@ -54,32 +57,46 @@ public class PermissiveWhitelistTest {
         assertFalse("Permissive whitelisting should be disabled by default", PermissiveWhitelist.enabled);
 
         try {
-            runScript("jenkins.model.Jenkins.getInstance()");
+            runScript("System.exit(42)");
             fail();
         } catch (RejectedAccessException _) {
             // Expected
         }
 
+        Set<ScriptApproval.PendingSignature> pendingSignatures = ScriptApproval.get().getPendingSignatures();
+        assertEquals(pendingSignatures.toString(), 1, pendingSignatures.size());
+
         List<LogRecord> logs = handler.getView();
         assertEquals(0, logs.size());
 
         PermissiveWhitelist.enabled = true;
-        Object ret = runScript("jenkins.model.Jenkins.getInstance()");
-        assertTrue(ret instanceof Jenkins);
+        try {
+            Object ret = runScript("jenkins.model.Jenkins.getInstance()");
+            assertTrue(ret instanceof Jenkins);
 
-        logs = handler.getView();
-        assertEquals(1, logs.size());
-        assertEquals("Unsecure signature found: staticMethod jenkins.model.Jenkins getInstance", logs.get(0).getMessage());
+            logs = handler.getView();
+            assertEquals(1, logs.size());
+            assertEquals("Unsecure signature found: staticMethod jenkins.model.Jenkins getInstance", logs.get(0).getMessage());
+
+            pendingSignatures = ScriptApproval.get().getPendingSignatures();
+            assertEquals(pendingSignatures.toString(), 2, pendingSignatures.size());
+        } finally {
+            PermissiveWhitelist.enabled = false;
+        }
     }
 
     @Test
-    public void ignoreSafeSignature() {
+    public void ignoreSafeSignature() throws Exception {
         PermissiveWhitelist.enabled = true;
-        RingBufferLogHandler handler = injectLogHandler();
+        try {
+            RingBufferLogHandler handler = injectLogHandler();
 
-        Object ret = runScript("this.equals(this)");
-        assertTrue((Boolean) ret);
-        assertEquals(handler.getView().toString(), 0, handler.getView().size());
+            Object ret = runScript("this.equals(this)");
+            assertTrue((Boolean) ret);
+            assertEquals(handler.getView().toString(), 0, handler.getView().size());
+        } finally {
+            PermissiveWhitelist.enabled = false;
+        }
     }
 
     private RingBufferLogHandler injectLogHandler() {
@@ -91,9 +108,9 @@ public class PermissiveWhitelistTest {
         return handler;
     }
 
-    private Object runScript(String text) {
-        GroovyShell shell = new GroovyShell(GroovySandbox.createSecureCompilerConfiguration());
-        Script script = shell.parse(text);
-        return GroovySandbox.run(script, Whitelist.all());
+    private Object runScript(String text) throws Exception {
+        SecureGroovyScript script = new SecureGroovyScript(text, true, Collections.<ClasspathEntry>emptyList());
+        script.configuring(ApprovalContext.create());
+        return script.evaluate(getClass().getClassLoader(), new Binding());
     }
 }
