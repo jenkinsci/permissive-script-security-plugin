@@ -45,45 +45,72 @@ import java.util.logging.Logger;
  *
  * @author ogondza.
  */
-@Extension(ordinal = Double.MIN_VALUE) @Restricted(NoExternalUse.class) // Run if no other whitelist permitted the signature.
+@Restricted(NoExternalUse.class)
+@Extension(ordinal = Double.MIN_VALUE) // Run if no other whitelist permitted the signature.
 public class PermissiveWhitelist extends Whitelist {
-    /*package*/ static volatile boolean enabled = Boolean.getBoolean("permissive-script-security.enabled");
+    /*package*/ static @Nonnull Mode MODE = Mode.getConfigured(
+            System.getProperty("permissive-script-security.enabled", "false")
+    );
 
     /*package*/ static final Logger LOGGER = Logger.getLogger(PermissiveWhitelist.class.getName());
 
+    public enum Mode {
+        DISABLED() {
+            public boolean act(RejectedAccessException ex) {
+                return false; // Reject was not permitted by others
+            }
+        },
+        ENABLED() {
+            public boolean act(RejectedAccessException ex) {
+                LOGGER.log(Level.INFO, "Unsecure signature found: " + ex.getSignature(), ex);
+                ScriptApproval.get().accessRejected(ex, ApprovalContext.create().withCurrentUser());
+                return true;
+            }
+        },
+        NO_SECURITY() {
+            public boolean act(RejectedAccessException ex) {
+                return true; // You have been warned
+            }
+        };
+
+        public abstract boolean act(RejectedAccessException ex);
+
+        public static Mode getConfigured(String config) {
+            if ("true".equals(config)) {
+                return ENABLED;
+            } else if ("no_security".equals(config)) {
+                return NO_SECURITY;
+            } else {
+                return DISABLED;
+            }
+        }
+    }
+
     public boolean permitsMethod(@Nonnull Method method, @Nonnull Object receiver, @Nonnull Object[] args) {
-        return act(StaticWhitelist.rejectMethod(method));
+        return MODE.act(StaticWhitelist.rejectMethod(method));
     }
 
     public boolean permitsConstructor(@Nonnull Constructor<?> constructor, @Nonnull Object[] args) {
-        return act(StaticWhitelist.rejectNew(constructor));
+        return MODE.act(StaticWhitelist.rejectNew(constructor));
     }
 
     public boolean permitsStaticMethod(@Nonnull Method method, @Nonnull Object[] args) {
-        return act(StaticWhitelist.rejectStaticMethod(method));
+        return MODE.act(StaticWhitelist.rejectStaticMethod(method));
     }
 
     public boolean permitsFieldGet(@Nonnull Field field, @Nonnull Object receiver) {
-        return act(StaticWhitelist.rejectField(field));
+        return MODE.act(StaticWhitelist.rejectField(field));
     }
 
     public boolean permitsFieldSet(@Nonnull Field field, @Nonnull Object receiver, @CheckForNull Object value) {
-        return act(StaticWhitelist.rejectField(field));
+        return MODE.act(StaticWhitelist.rejectField(field));
     }
 
     public boolean permitsStaticFieldGet(@Nonnull Field field) {
-        return act(StaticWhitelist.rejectStaticField(field));
+        return MODE.act(StaticWhitelist.rejectStaticField(field));
     }
 
     public boolean permitsStaticFieldSet(@Nonnull Field field, @CheckForNull Object value) {
-        return act(StaticWhitelist.rejectStaticField(field));
-    }
-
-    private boolean act(RejectedAccessException ex) {
-        if (enabled) {
-            LOGGER.log(Level.INFO, "Unsecure signature found: " + ex.getSignature(), ex);
-            ScriptApproval.get().accessRejected(ex, ApprovalContext.create().withCurrentUser());
-        }
-        return enabled;
+        return MODE.act(StaticWhitelist.rejectStaticField(field));
     }
 }

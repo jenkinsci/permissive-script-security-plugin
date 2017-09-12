@@ -26,6 +26,7 @@ package org.jenkinsci.plugins.permissivescriptsecurity;
 import groovy.lang.Binding;
 import hudson.util.RingBufferLogHandler;
 import jenkins.model.Jenkins;
+import org.jenkinsci.plugins.permissivescriptsecurity.PermissiveWhitelist.Mode;
 import org.jenkinsci.plugins.scriptsecurity.sandbox.RejectedAccessException;
 import org.jenkinsci.plugins.scriptsecurity.sandbox.groovy.SecureGroovyScript;
 import org.jenkinsci.plugins.scriptsecurity.scripts.ApprovalContext;
@@ -42,7 +43,6 @@ import java.util.logging.Handler;
 import java.util.logging.LogRecord;
 
 import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 
@@ -52,9 +52,9 @@ public class PermissiveWhitelistTest {
     public JenkinsRule j = new JenkinsRule();
 
     @Test
-    public void logUnsafeSignature() throws Exception {
+    public void logUnsafeSignatureInPermissiveMode() throws Exception {
         RingBufferLogHandler handler = injectLogHandler();
-        assertFalse("Permissive whitelisting should be disabled by default", PermissiveWhitelist.enabled);
+        assertEquals("Permissive whitelisting should be disabled by default", Mode.DISABLED, PermissiveWhitelist.MODE);
 
         try {
             runScript("System.exit(42)");
@@ -69,7 +69,7 @@ public class PermissiveWhitelistTest {
         List<LogRecord> logs = handler.getView();
         assertEquals(0, logs.size());
 
-        PermissiveWhitelist.enabled = true;
+        PermissiveWhitelist.MODE = Mode.ENABLED;
         try {
             Object ret = runScript("jenkins.model.Jenkins.getInstance()");
             assertTrue(ret instanceof Jenkins);
@@ -81,13 +81,13 @@ public class PermissiveWhitelistTest {
             pendingSignatures = ScriptApproval.get().getPendingSignatures();
             assertEquals(pendingSignatures.toString(), 2, pendingSignatures.size());
         } finally {
-            PermissiveWhitelist.enabled = false;
+            PermissiveWhitelist.MODE = Mode.DISABLED;
         }
     }
 
     @Test
     public void ignoreSafeSignature() throws Exception {
-        PermissiveWhitelist.enabled = true;
+        PermissiveWhitelist.MODE = Mode.ENABLED;
         try {
             RingBufferLogHandler handler = injectLogHandler();
 
@@ -95,8 +95,27 @@ public class PermissiveWhitelistTest {
             assertTrue((Boolean) ret);
             assertEquals(handler.getView().toString(), 0, handler.getView().size());
         } finally {
-            PermissiveWhitelist.enabled = false;
+            PermissiveWhitelist.MODE = Mode.DISABLED;
         }
+
+        PermissiveWhitelist.MODE = Mode.NO_SECURITY;
+        try {
+            RingBufferLogHandler handler = injectLogHandler();
+
+            Object ret = runScript("this.equals(this)");
+            assertTrue((Boolean) ret);
+            assertEquals(handler.getView().toString(), 0, handler.getView().size());
+        } finally {
+            PermissiveWhitelist.MODE = Mode.DISABLED;
+        }
+    }
+    
+    @Test
+    public void getConfigured() throws Exception {
+        assertEquals(Mode.ENABLED, Mode.getConfigured("true"));
+        assertEquals(Mode.DISABLED, Mode.getConfigured("false"));
+        assertEquals(Mode.NO_SECURITY, Mode.getConfigured("no_security"));
+        assertEquals(Mode.DISABLED, Mode.getConfigured("This looks like a nice plugin!"));
     }
 
     private RingBufferLogHandler injectLogHandler() {
