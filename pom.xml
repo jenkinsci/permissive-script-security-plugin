@@ -6,7 +6,7 @@
         <version>1.609</version>
     </parent>
     <artifactId>permissive-script-security</artifactId>
-    <version>0.2</version>
+    <version>0.3-SNAPSHOT</version>
     <packaging>hpi</packaging>
     <name>Permissive Script Security Plugin</name>
     <description>Do not install unless you know what you are doing. Turns on permissive mode of Script Security Plugin. Problematic signatures will be logged but access will not be rejected.</description>
@@ -34,7 +34,7 @@
         <connection>scm:git:git://github.com/jenkinsci/${project.artifactId}-plugin.git</connection>
         <developerConnection>scm:git:git@github.com:jenkinsci/${project.artifactId}-plugin.git</developerConnection>
         <url>https://github.com/jenkinsci/${project.artifactId}-plugin</url>
-      <tag>permissive-script-security-0.2</tag>
+      <tag>HEAD</tag>
     </scm>
 
     <repositories>
