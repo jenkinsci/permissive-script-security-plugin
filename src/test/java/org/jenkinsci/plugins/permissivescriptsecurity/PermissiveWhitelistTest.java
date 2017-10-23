@@ -83,6 +83,27 @@ public class PermissiveWhitelistTest {
         } finally {
             PermissiveWhitelist.MODE = Mode.DISABLED;
         }
+
+        handler.clear();
+        logs = handler.getView();
+        assertEquals(0, logs.size());
+
+        PermissiveWhitelist.MODE = Mode.NO_SECURITY;
+        try {
+            Object ret = runScript("new File('/')");
+            assertTrue(ret instanceof java.io.File);
+
+            logs = handler.getView();
+            assertEquals(logs.toString(), 0, logs.size());
+
+            pendingSignatures = ScriptApproval.get().getPendingSignatures();
+            for (ScriptApproval.PendingSignature pendingSignature : pendingSignatures) {
+                System.out.println(pendingSignature.signature);
+            }
+            assertEquals(pendingSignatures.toString(), 2, pendingSignatures.size());
+        } finally {
+            PermissiveWhitelist.MODE = Mode.DISABLED;
+        }
     }
 
     @Test
