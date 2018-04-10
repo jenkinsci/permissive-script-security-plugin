@@ -67,6 +67,17 @@ public class PermissiveWhitelist extends Whitelist {
                 return true;
             }
         },
+        NO_DANGEROUS() {
+            public boolean act(RejectedAccessException ex) {
+                LOGGER.log(Level.INFO, "Unsecure signature found: " + ex.getSignature(), ex);                
+                if(ex.isDangerous()) {                	
+                	LOGGER.log(Level.INFO, "Dangerous signature rejected: " + ex.getSignature()); 		
+            		return false;                	
+                }            	
+            	ScriptApproval.get().accessRejected(ex, ApprovalContext.create().withCurrentUser());
+                return true;
+            }
+        },
         NO_SECURITY() {
             public boolean act(RejectedAccessException ex) {
                 return true; // You have been warned
@@ -78,6 +89,8 @@ public class PermissiveWhitelist extends Whitelist {
         public static Mode getConfigured(String config) {
             if ("true".equals(config)) {
                 return ENABLED;
+            } else if ("no_dangerous".equals(config)) {
+                return NO_DANGEROUS;
             } else if ("no_security".equals(config)) {
                 return NO_SECURITY;
             } else {
