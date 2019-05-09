@@ -34,9 +34,11 @@ import org.kohsuke.accmod.restrictions.NoExternalUse;
 
 import javax.annotation.CheckForNull;
 import javax.annotation.Nonnull;
+import java.lang.reflect.AccessibleObject;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
+import java.util.function.Function;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
@@ -56,24 +58,25 @@ public class PermissiveWhitelist extends Whitelist {
 
     public enum Mode {
         DISABLED() {
-            public boolean act(RejectedAccessException ex) {
+            public <T extends AccessibleObject> boolean act(T item, Function<T, RejectedAccessException> convertor) {
                 return false; // Reject was not permitted by others
             }
         },
         ENABLED() {
-            public boolean act(RejectedAccessException ex) {
-                LOGGER.log(Level.INFO, "Unsecure signature found: " + ex.getSignature(), ex);
+            public <T extends AccessibleObject> boolean act(T item, Function<T, RejectedAccessException> convertor) {
+                RejectedAccessException ex = convertor.apply(item);
+                LOGGER.log(Level.INFO, "Unsecure signature found: " + ex.getSignature(), convertor);
                 ScriptApproval.get().accessRejected(ex, ApprovalContext.create().withCurrentUser());
                 return true;
             }
         },
         NO_SECURITY() {
-            public boolean act(RejectedAccessException ex) {
+            public <T extends AccessibleObject> boolean act(T item, Function<T, RejectedAccessException> convertor) {
                 return true; // You have been warned
             }
         };
 
-        public abstract boolean act(RejectedAccessException ex);
+        public abstract <T extends AccessibleObject> boolean act(T item, Function<T, RejectedAccessException> convertor);
 
         public static Mode getConfigured(String config) {
             if ("true".equals(config)) {
@@ -87,30 +90,30 @@ public class PermissiveWhitelist extends Whitelist {
     }
 
     public boolean permitsMethod(@Nonnull Method method, @Nonnull Object receiver, @Nonnull Object[] args) {
-        return MODE.act(StaticWhitelist.rejectMethod(method));
+        return MODE.act(method, StaticWhitelist::rejectMethod);
     }
 
     public boolean permitsConstructor(@Nonnull Constructor<?> constructor, @Nonnull Object[] args) {
-        return MODE.act(StaticWhitelist.rejectNew(constructor));
+        return MODE.act(constructor, StaticWhitelist::rejectNew);
     }
 
     public boolean permitsStaticMethod(@Nonnull Method method, @Nonnull Object[] args) {
-        return MODE.act(StaticWhitelist.rejectStaticMethod(method));
+        return MODE.act(method, StaticWhitelist::rejectStaticMethod);
     }
 
     public boolean permitsFieldGet(@Nonnull Field field, @Nonnull Object receiver) {
-        return MODE.act(StaticWhitelist.rejectField(field));
+        return MODE.act(field, StaticWhitelist::rejectField);
     }
 
     public boolean permitsFieldSet(@Nonnull Field field, @Nonnull Object receiver, @CheckForNull Object value) {
-        return MODE.act(StaticWhitelist.rejectField(field));
+        return MODE.act(field, StaticWhitelist::rejectField);
     }
 
     public boolean permitsStaticFieldGet(@Nonnull Field field) {
-        return MODE.act(StaticWhitelist.rejectStaticField(field));
+        return MODE.act(field, StaticWhitelist::rejectStaticField);
     }
 
     public boolean permitsStaticFieldSet(@Nonnull Field field, @CheckForNull Object value) {
-        return MODE.act(StaticWhitelist.rejectStaticField(field));
+        return MODE.act(field, StaticWhitelist::rejectStaticField);
     }
 }

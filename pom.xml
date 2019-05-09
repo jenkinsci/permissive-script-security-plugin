@@ -3,7 +3,7 @@
     <parent>
         <groupId>org.jenkins-ci.plugins</groupId>
         <artifactId>plugin</artifactId>
-        <version>2.32</version>
+        <version>3.40</version>
     </parent>
     <artifactId>permissive-script-security</artifactId>
     <version>0.4-SNAPSHOT</version>
@@ -14,8 +14,8 @@
 
     <properties>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
-        <java.level>6</java.level>
-        <jenkins.version>1.609</jenkins.version>
+        <java.level>8</java.level>
+        <jenkins.version>2.60.3</jenkins.version>
     </properties>
 
     <dependencies>

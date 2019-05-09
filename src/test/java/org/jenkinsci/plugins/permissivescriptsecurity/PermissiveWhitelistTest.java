@@ -36,6 +36,7 @@ import org.junit.Rule;
 import org.junit.Test;
 import org.jvnet.hudson.test.JenkinsRule;
 
+import java.io.File;
 import java.util.Collections;
 import java.util.List;
 import java.util.Set;
@@ -57,7 +58,7 @@ public class PermissiveWhitelistTest {
         assertEquals("Permissive whitelisting should be disabled by default", Mode.DISABLED, PermissiveWhitelist.MODE);
 
         try {
-            runScript("System.exit(42)");
+            runScript("Runtime.getRuntime().exec('date')");
             fail();
         } catch (RejectedAccessException _) {
             // Expected
@@ -137,6 +138,26 @@ public class PermissiveWhitelistTest {
         assertEquals(Mode.DISABLED, Mode.getConfigured("false"));
         assertEquals(Mode.NO_SECURITY, Mode.getConfigured("no_security"));
         assertEquals(Mode.DISABLED, Mode.getConfigured("This looks like a nice plugin!"));
+    }
+
+    @Test
+    public void permittedSignaturesAreRetained() throws Exception {
+        try {
+            runScript("new File('/etc/shadow')");
+            fail();
+        } catch (RejectedAccessException _) {
+            // Expected
+        }
+
+        Set<ScriptApproval.PendingSignature> pendingSignatures = ScriptApproval.get().getPendingSignatures();
+        assertEquals(1, pendingSignatures.size());
+
+        ScriptApproval.get().approveSignature(pendingSignatures.iterator().next().signature);
+        assertEquals(0, ScriptApproval.get().getPendingSignatures().size());
+
+        Object o = runScript("new File('/etc/shadow')");
+        assertTrue(o instanceof File);
+        assertEquals(0, ScriptApproval.get().getPendingSignatures().size());
     }
 
     private RingBufferLogHandler injectLogHandler() {
