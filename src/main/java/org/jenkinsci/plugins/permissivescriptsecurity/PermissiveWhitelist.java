@@ -27,18 +27,17 @@ import hudson.Extension;
 import org.jenkinsci.plugins.scriptsecurity.sandbox.RejectedAccessException;
 import org.jenkinsci.plugins.scriptsecurity.sandbox.Whitelist;
 import org.jenkinsci.plugins.scriptsecurity.sandbox.whitelists.StaticWhitelist;
-import org.jenkinsci.plugins.scriptsecurity.scripts.ApprovalContext;
-import org.jenkinsci.plugins.scriptsecurity.scripts.ScriptApproval;
 import org.kohsuke.accmod.Restricted;
 import org.kohsuke.accmod.restrictions.NoExternalUse;
 
 import javax.annotation.CheckForNull;
 import javax.annotation.Nonnull;
-import java.lang.reflect.AccessibleObject;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
+import java.util.concurrent.locks.ReentrantLock;
 import java.util.function.Function;
+import java.util.function.Supplier;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
@@ -56,27 +55,47 @@ public class PermissiveWhitelist extends Whitelist {
 
     /*package*/ static final Logger LOGGER = Logger.getLogger(PermissiveWhitelist.class.getName());
 
+    private static final Whitelist ALL = Whitelist.all();
+
     public enum Mode {
         DISABLED() {
-            public <T extends AccessibleObject> boolean act(T item, Function<T, RejectedAccessException> convertor) {
-                return false; // Reject was not permitted by others
+            @Override
+            public boolean act(Function<Whitelist, Boolean> check, Supplier<RejectedAccessException> reject) {
+                return false;
             }
         },
         ENABLED() {
-            public <T extends AccessibleObject> boolean act(T item, Function<T, RejectedAccessException> convertor) {
-                RejectedAccessException ex = convertor.apply(item);
-                LOGGER.log(Level.INFO, "Unsecure signature found: " + ex.getSignature(), convertor);
-                ScriptApproval.get().accessRejected(ex, ApprovalContext.create().withCurrentUser());
-                return true;
+            // There does not seem to be a reliable way to make sure this is the latest Whitelist to consult (so we cannot
+            // assume noone has whitelisted the signature when we are called), so as a second best thing, let's rerun all
+            // the whitelists to see whether the signature needs to be logged. The lock is here to prevent this to cause
+            // infinite recursion by aborting when the thread is about to reenter.
+            private final ReentrantLock rl = new ReentrantLock();
+            @Override
+            public boolean act(Function<Whitelist, Boolean> check, Supplier<RejectedAccessException> reject) {
+                // Break the recursion _not_ whitelisting the signature - we need to know what would happen without this whitelist
+                if (rl.isHeldByCurrentThread()) return false;
+
+                rl.lock();
+                try {
+                    Boolean otherwiseWhitelisted = check.apply(ALL);
+                    if (!otherwiseWhitelisted) {
+                        RejectedAccessException raj = reject.get();
+                        LOGGER.log(Level.INFO, "Unsecure signature found: " + raj.getSignature(), raj);
+                    }
+                    return true;
+                } finally {
+                    rl.unlock();
+                }
             }
         },
         NO_SECURITY() {
-            public <T extends AccessibleObject> boolean act(T item, Function<T, RejectedAccessException> convertor) {
-                return true; // You have been warned
+            @Override
+            public boolean act(Function<Whitelist, Boolean> check, Supplier<RejectedAccessException> reject) {
+                return true;
             }
         };
 
-        public abstract <T extends AccessibleObject> boolean act(T item, Function<T, RejectedAccessException> convertor);
+        public abstract boolean act(Function<Whitelist, Boolean> check, Supplier<RejectedAccessException> reject);
 
         public static Mode getConfigured(String config) {
             if ("true".equals(config)) {
@@ -90,30 +109,51 @@ public class PermissiveWhitelist extends Whitelist {
     }
 
     public boolean permitsMethod(@Nonnull Method method, @Nonnull Object receiver, @Nonnull Object[] args) {
-        return MODE.act(method, StaticWhitelist::rejectMethod);
+        return MODE.act(
+                w -> w.permitsMethod(method, receiver, args),
+                () -> StaticWhitelist.rejectMethod(method)
+        );
     }
 
     public boolean permitsConstructor(@Nonnull Constructor<?> constructor, @Nonnull Object[] args) {
-        return MODE.act(constructor, StaticWhitelist::rejectNew);
+        return MODE.act(
+                w -> w.permitsConstructor(constructor, args),
+                () -> StaticWhitelist.rejectNew(constructor)
+        );
     }
 
     public boolean permitsStaticMethod(@Nonnull Method method, @Nonnull Object[] args) {
-        return MODE.act(method, StaticWhitelist::rejectStaticMethod);
+        return MODE.act(
+                w -> w.permitsStaticMethod(method, args),
+                () -> StaticWhitelist.rejectStaticMethod(method)
+        );
     }
 
     public boolean permitsFieldGet(@Nonnull Field field, @Nonnull Object receiver) {
-        return MODE.act(field, StaticWhitelist::rejectField);
+        return MODE.act(
+                w -> w.permitsFieldGet(field, receiver),
+                () -> StaticWhitelist.rejectField(field)
+        );
     }
 
     public boolean permitsFieldSet(@Nonnull Field field, @Nonnull Object receiver, @CheckForNull Object value) {
-        return MODE.act(field, StaticWhitelist::rejectField);
+        return MODE.act(
+                w -> w.permitsFieldSet(field, receiver, value),
+                () -> StaticWhitelist.rejectField(field)
+        );
     }
 
     public boolean permitsStaticFieldGet(@Nonnull Field field) {
-        return MODE.act(field, StaticWhitelist::rejectStaticField);
+        return MODE.act(
+                w -> w.permitsStaticFieldGet(field),
+                () -> StaticWhitelist.rejectStaticField(field)
+        );
     }
 
     public boolean permitsStaticFieldSet(@Nonnull Field field, @CheckForNull Object value) {
-        return MODE.act(field, StaticWhitelist::rejectStaticField);
+        return MODE.act(
+                w -> w.permitsStaticFieldSet(field, value),
+                () -> StaticWhitelist.rejectStaticField(field)
+        );
     }
 }
