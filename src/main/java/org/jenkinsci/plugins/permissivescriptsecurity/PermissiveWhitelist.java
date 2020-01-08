@@ -55,8 +55,6 @@ public class PermissiveWhitelist extends Whitelist {
 
     /*package*/ static final Logger LOGGER = Logger.getLogger(PermissiveWhitelist.class.getName());
 
-    private static final Whitelist ALL = Whitelist.all();
-
     public enum Mode {
         DISABLED() {
             @Override
@@ -77,7 +75,7 @@ public class PermissiveWhitelist extends Whitelist {
 
                 rl.lock();
                 try {
-                    Boolean otherwiseWhitelisted = check.apply(ALL);
+                    Boolean otherwiseWhitelisted = check.apply(Whitelist.all());
                     if (!otherwiseWhitelisted) {
                         RejectedAccessException raj = reject.get();
                         LOGGER.log(Level.INFO, "Unsecure signature found: " + raj.getSignature(), raj);
