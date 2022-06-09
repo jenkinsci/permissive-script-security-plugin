@@ -1,0 +1,4 @@
+<?jelly escape-by-default='true'?>
+<div>
+    Do not install unless you know what you are doing. Turns on permissive mode of Script Security Plugin. Problematic signatures will be logged but access will not be rejected.
+</div>

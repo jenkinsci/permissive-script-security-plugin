@@ -3,7 +3,8 @@
     <parent>
         <groupId>org.jenkins-ci.plugins</groupId>
         <artifactId>plugin</artifactId>
-        <version>3.40</version>
+        <version>4.40</version>
+        <relativePath/>
     </parent>
     <artifactId>permissive-script-security</artifactId>
     <version>0.8-SNAPSHOT</version>
@@ -14,54 +15,47 @@
 
     <properties>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
-        <java.level>8</java.level>
-        <jenkins.version>2.107.3</jenkins.version>
+        <jenkins.version>2.303.3</jenkins.version>
     </properties>
+    <dependencyManagement>
+        <dependencies>
+        <dependency>
+            <groupId>io.jenkins.tools.bom</groupId>
+            <artifactId>bom-2.303.x</artifactId>
+            <version>1409.v7659b_c072f18</version>
+            <type>pom</type>
+            <scope>import</scope>
+        </dependency>
+        </dependencies>
+    </dependencyManagement>
 
     <dependencies>
         <dependency>
             <groupId>org.jenkins-ci.plugins</groupId>
             <artifactId>script-security</artifactId>
-            <version>1.58</version>
         </dependency>
 
         <!-- pipeline integration -->
         <dependency>
             <groupId>org.jenkins-ci.plugins.workflow</groupId>
             <artifactId>workflow-cps</artifactId>
-            <version>2.25</version>
             <scope>test</scope>
         </dependency>
         <dependency>
             <groupId>org.jenkins-ci.plugins.workflow</groupId>
             <artifactId>workflow-support</artifactId>
             <classifier>tests</classifier>
-            <version>2.12</version>
             <scope>test</scope>
         </dependency>
         <dependency>
             <groupId>org.jenkins-ci.plugins.workflow</groupId>
             <artifactId>workflow-job</artifactId>
-            <version>2.9</version>
             <scope>test</scope>
         </dependency>
         <dependency>
             <groupId>org.jenkins-ci.plugins.workflow</groupId>
             <artifactId>workflow-basic-steps</artifactId>
-            <version>2.3</version>
             <scope>test</scope>
-        </dependency>
-
-        <!-- upper bound -->
-        <dependency>
-            <groupId>org.jenkins-ci</groupId>
-            <artifactId>symbol-annotation</artifactId>
-            <version>1.5</version>
-        </dependency>
-        <dependency>
-            <groupId>org.jenkins-ci</groupId>
-            <artifactId>annotation-indexer</artifactId>
-            <version>1.12</version>
         </dependency>
     </dependencies>
 

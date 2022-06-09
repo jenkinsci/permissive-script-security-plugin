@@ -23,6 +23,8 @@
  */
 package org.jenkinsci.plugins.permissivescriptsecurity;
 
+import edu.umd.cs.findbugs.annotations.CheckForNull;
+import edu.umd.cs.findbugs.annotations.NonNull;
 import hudson.Extension;
 import org.jenkinsci.plugins.scriptsecurity.sandbox.RejectedAccessException;
 import org.jenkinsci.plugins.scriptsecurity.sandbox.Whitelist;
@@ -30,8 +32,6 @@ import org.jenkinsci.plugins.scriptsecurity.sandbox.whitelists.StaticWhitelist;
 import org.kohsuke.accmod.Restricted;
 import org.kohsuke.accmod.restrictions.NoExternalUse;
 
-import javax.annotation.CheckForNull;
-import javax.annotation.Nonnull;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
@@ -49,7 +49,7 @@ import java.util.logging.Logger;
 @Restricted(NoExternalUse.class)
 @Extension(ordinal = Double.MIN_VALUE) // Run if no other whitelist permitted the signature.
 public class PermissiveWhitelist extends Whitelist {
-    /*package*/ static @Nonnull Mode MODE = Mode.getConfigured(
+    /*package*/ static @NonNull Mode MODE = Mode.getConfigured(
             System.getProperty("permissive-script-security.enabled", "false")
     );
 
@@ -106,49 +106,49 @@ public class PermissiveWhitelist extends Whitelist {
         }
     }
 
-    public boolean permitsMethod(@Nonnull Method method, @Nonnull Object receiver, @Nonnull Object[] args) {
+    public boolean permitsMethod(@NonNull Method method, @NonNull Object receiver, @NonNull Object[] args) {
         return MODE.act(
                 w -> w.permitsMethod(method, receiver, args),
                 () -> StaticWhitelist.rejectMethod(method)
         );
     }
 
-    public boolean permitsConstructor(@Nonnull Constructor<?> constructor, @Nonnull Object[] args) {
+    public boolean permitsConstructor(@NonNull Constructor<?> constructor, @NonNull Object[] args) {
         return MODE.act(
                 w -> w.permitsConstructor(constructor, args),
                 () -> StaticWhitelist.rejectNew(constructor)
         );
     }
 
-    public boolean permitsStaticMethod(@Nonnull Method method, @Nonnull Object[] args) {
+    public boolean permitsStaticMethod(@NonNull Method method, @NonNull Object[] args) {
         return MODE.act(
                 w -> w.permitsStaticMethod(method, args),
                 () -> StaticWhitelist.rejectStaticMethod(method)
         );
     }
 
-    public boolean permitsFieldGet(@Nonnull Field field, @Nonnull Object receiver) {
+    public boolean permitsFieldGet(@NonNull Field field, @NonNull Object receiver) {
         return MODE.act(
                 w -> w.permitsFieldGet(field, receiver),
                 () -> StaticWhitelist.rejectField(field)
         );
     }
 
-    public boolean permitsFieldSet(@Nonnull Field field, @Nonnull Object receiver, @CheckForNull Object value) {
+    public boolean permitsFieldSet(@NonNull Field field, @NonNull Object receiver, @CheckForNull Object value) {
         return MODE.act(
                 w -> w.permitsFieldSet(field, receiver, value),
                 () -> StaticWhitelist.rejectField(field)
         );
     }
 
-    public boolean permitsStaticFieldGet(@Nonnull Field field) {
+    public boolean permitsStaticFieldGet(@NonNull Field field) {
         return MODE.act(
                 w -> w.permitsStaticFieldGet(field),
                 () -> StaticWhitelist.rejectStaticField(field)
         );
     }
 
-    public boolean permitsStaticFieldSet(@Nonnull Field field, @CheckForNull Object value) {
+    public boolean permitsStaticFieldSet(@NonNull Field field, @CheckForNull Object value) {
         return MODE.act(
                 w -> w.permitsStaticFieldSet(field, value),
                 () -> StaticWhitelist.rejectStaticField(field)
