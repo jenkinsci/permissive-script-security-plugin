@@ -95,4 +95,21 @@
             <url>https://repo.jenkins-ci.org/public/</url>
         </pluginRepository>
     </pluginRepositories>
+
+    <plugin>
+        <groupId>org.jenkins-ci.tools</groupId>
+        <artifactId>maven-hpi-plugin</artifactId>
+        <version>3.38</version>
+        <extensions>true</extensions>
+        <executions>
+            <execution>
+                <id>default-validate-hpi</id>
+                <phase>validate</phase>
+                <configuration>
+                    <minimumJavaVersion>11</minimumJavaVersion>
+                </configuration>
+            </execution>
+        </executions>
+    </plugin>
+
 </project>
