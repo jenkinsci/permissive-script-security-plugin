@@ -60,7 +60,7 @@ public class PermissiveWhitelistTest {
         try {
             runScript("Runtime.getRuntime().exec('date')");
             fail();
-        } catch (RejectedAccessException _) {
+        } catch (RejectedAccessException rException) {
             // Expected
         }
 
@@ -145,7 +145,7 @@ public class PermissiveWhitelistTest {
         try {
             runScript("new File('/etc/shadow')");
             fail();
-        } catch (RejectedAccessException _) {
+        } catch (RejectedAccessException rException) {
             // Expected
         }
 
